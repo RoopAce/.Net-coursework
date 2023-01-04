@@ -1,0 +1,16 @@
+#list1 .form-control[b-xytabovvad] {
+    border-color: transparent;
+}
+
+    #list1 .form-control:focus[b-xytabovvad] {
+        border-color: transparent;
+        box-shadow: none;
+    }
+
+#list1 .select-input.form-control[readonly]:not([disabled])[b-xytabovvad] {
+    background-color: #fbfbfb;
+}
+
+.todo-toolbar .search[b-xytabovvad] {
+    background-color: #eff1f2;
+}

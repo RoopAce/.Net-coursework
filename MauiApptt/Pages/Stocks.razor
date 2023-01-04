@@ -1,0 +1,247 @@
+﻿@page "/stocks"
+
+<nav class="navbar navbar-light bg-light justify-content-between">
+    <h1 class="navbar-brand mb-0 h1">Stocks</h1>
+    <button class="btn btn-primary" type="button" @onclick="OpenAddStockDialog">
+        <span class="oi oi-plus" /> Add
+    </button>
+</nav>
+<ul class="nav nav-tabs">
+    <li class="nav-item ">
+        <a class='nav-link btn @(_tabFilter == "All" ? "active" : "")' @onclick='()=>TabFilter("All")'>All</a>
+    </li>
+</ul>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                <div class="d-flex">
+                    <input type="search" class="form-control search" placeholder="Search" @oninput="SearchItemName" />
+                    <a class='btn text-@(_sortBy == "itemName" ? "primary" : "secondary")' data-mdb-toggle="tooltip"
+                       @onclick='()=>SortByHandler("itemName")'>
+                        <span class='oi oi-sort-@(_sortBy == "itemName" ? _sortDirection : "ascending")' />
+                    </a>
+                </div>
+            </th>
+            <th>
+                <div class="d-flex">
+                    Last Taken At
+                    <a class='btn text-@(_sortBy == "createdAt" ? "primary" : "secondary")' data-mdb-toggle="tooltip"
+                       @onclick='()=>SortByHandler("createdAt")'>
+                        <span class='oi oi-sort-@(_sortBy == "createdAt" ? _sortDirection : "ascending")' />
+                    </a>
+                </div>
+            </th>
+            <th>
+                <div class="d-flex">
+                    Quantity
+                </div>
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        @{
+            IEnumerable<StockItem> stockList = _stocks;
+            
+            if (_sortBy == "itemName")
+            {
+                stockList = _sortDirection == "ascending" ? stockList.OrderBy(t => t.ItemName) : stockList.OrderByDescending(t =>
+                t.ItemName);
+            }
+     
+            else if (_sortBy == "createdAt")
+            {
+                stockList = _sortDirection == "ascending" ? stockList.OrderBy(t => t.CreatedAt) : stockList.OrderByDescending(t =>
+                t.CreatedAt);
+            }
+
+
+
+            foreach (var stockItem in stockList)
+            {
+                <tr>
+                    <td >@stockItem.ItemName</td>
+                    <td>
+                        <p class="small mb-0">
+                            @stockItem.CreatedAt.ToString("MMM dd, yyyy h:mm tt")
+                        </p>
+                    </td>
+                    <td>@stockItem.Quantity</td>
+                    <td>
+                        <button class="btn btn-outline-secondary" type="button"
+                            @onclick="()=>OpenEditStockDialog(stockItem)">
+                            <span class="oi oi-pencil" /> Edit
+                        </button>
+                        <button class="btn btn-outline-danger" type="button" @onclick="()=>OpenDeleteStockDialog(stockItem)">
+                            <span class="oi oi-delete" /> Delete
+                        </button>
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+
+@if (_showEditStockDialog)
+{
+    <ModalDialog Title="@_dialogTitle" OnClose="@OnEditStockDialogClose" OkLabel="@_dialogOkLabel">
+        <div class="form-floating">
+            <input id="itemName" type="text" class="form-control" @bind="_stockModel.ItemName" placeholder="Item Name" />
+            <label for="itemName">Item Name</label>
+        </div>
+        <div class="form-floating">
+            <input id="quantity" type="text" class="form-control" @bind="_stockModel.Quantity" placeholder="Quantity" />
+            <label for="quantity">Quantity</label>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_editStockErrorMessage))
+        {
+            <AlertMessage Type="danger" Message="@_editStockErrorMessage" />
+        }
+    </ModalDialog>
+}
+
+@if (_showDeleteStockDialog)
+{
+    <ModalDialog Title="Delete Stock" OnClose="@OnDeleteStockDialogClose" OkLabel="Confirm">
+        <p>Are you sure you want to delete <strong>@_deleteStock.ItemName</strong> task?</p>
+        @if (!string.IsNullOrEmpty(_deleteStockErrorMessage))
+        {
+            <AlertMessage Type="danger" Message="@_deleteStockErrorMessage" />
+        }
+    </ModalDialog>
+}
+
+@code {
+    [CascadingParameter]
+    private GlobalState _globalState { get; set; }
+    private bool _showEditStockDialog { get; set; }
+    private bool _showDeleteStockDialog { get; set; }
+    private List<StockItem> _stocks { get; set; }
+    private StockItem _deleteStock{ get; set; }
+    private string _dialogTitle { get; set; }
+    private string _dialogOkLabel { get; set; }
+    private string _editStockErrorMessage { get; set; }
+    private string _deleteStockErrorMessage { get; set; }
+    private StockItem _stockModel { get; set; }
+    private string _tabFilter = "All";
+    private string _sortBy = "dueDate";
+    private string _sortDirection = "ascending";
+    private string _quantity { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _stocks = StocksService.GetAll(_globalState.CurrentUser.Id);
+    }
+
+    private void SortByHandler(string sortByName)
+    {
+        if (_sortBy == sortByName)
+        {
+            _sortDirection = _sortDirection == "ascending" ? "descending" : "ascending";
+        }
+        else
+        {
+            _sortBy = sortByName;
+            _sortDirection = "ascending";
+        }
+    }
+
+    private void OpenAddStockDialog()
+    {
+        _dialogTitle = "Add Stock";
+        _dialogOkLabel = "Add";
+        _stockModel = new StockItem();
+        _stockModel.Id = Guid.Empty;
+        _showEditStockDialog = true;
+
+    }
+
+    private void SearchItemName(ChangeEventArgs e)
+    {
+        var searchTerm = e.Value.ToString();
+        if (!string.IsNullOrEmpty(searchTerm) && searchTerm.Length > 2)
+        {
+            _stocks = StocksService.GetAll(_globalState.CurrentUser.Id).Where(t =>
+            t.ItemName.ToLower().Contains(searchTerm.ToLower())).ToList();
+        }
+        else
+        {
+            _stocks = StocksService.GetAll(_globalState.CurrentUser.Id);
+        }
+    }
+
+    private void OpenEditStockDialog(StockItem editStock)
+    {
+        _dialogTitle = "Edit Todo";
+        _dialogOkLabel = "Save";
+
+        _stockModel = editStock;
+
+        _showEditStockDialog = true;
+    }
+
+    private void OpenDeleteStockDialog(StockItem stockItem)
+    {
+        _deleteStock = stockItem;
+        _showDeleteStockDialog = true;
+    }
+
+    
+    private void OnEditStockDialogClose(bool isCancel)
+    {
+        if (isCancel)
+        {
+            _showEditStockDialog = false;
+        }
+        else
+        {
+            try
+            {
+                _editStockErrorMessage = "";
+                if (_stockModel.Id == Guid.Empty)
+                {
+                    _stocks = StocksService.Create(_globalState.CurrentUser.Id, _stockModel.ItemName, _stockModel.Quantity);
+                }
+                else
+                {
+                    _stocks = StocksService.Update(_globalState.CurrentUser.Id, _stockModel.Id, _stockModel.ItemName, _stockModel.Quantity);
+                }
+                _showEditStockDialog = false;
+            }
+            catch (Exception e)
+            {
+                _editStockErrorMessage = e.Message;
+            }
+        }
+    }
+    private void OnDeleteStockDialogClose(bool isCancel)
+    {
+        if (isCancel)
+        {
+
+            _showDeleteStockDialog = false;
+            _deleteStock = null;
+        }
+        else
+        {
+            try
+            {
+                _deleteStockErrorMessage = "";
+                _stocks = StocksService.Delete(_globalState.CurrentUser.Id, _deleteStock.Id);
+                _showDeleteStockDialog = false;
+                _deleteStock = null;
+            }
+            catch (Exception e)
+            {
+                _deleteStockErrorMessage = e.Message;
+            }
+        }
+    }
+    private void TabFilter(string status)
+    {
+        _tabFilter = status;
+    }
+    
+}
